@@ -230,6 +230,16 @@ class angle:
 
     def print_table(self):
         return pd.DataFrame(self.__dict__)
+    
+    def __add__(self, other):
+        total_rad = self.rad + other.rad
+        total_deg = self.deg + other.deg
+        return angle(total_deg, total_rad)
+    
+    def __sub__(self, other):
+        total_rad = self.rad - other.rad
+        total_deg = self.deg - other.deg
+        return angle(total_deg, total_rad)
 
 
 ##### Flight Path Angle #####
@@ -254,7 +264,18 @@ class thst(angle):
         thst = 2*np.arctan(np.sqrt((1+e)/(1-e)) * np.tan(E/2))
         return super().radians(thst)
 
+##### Hyperbolic Angle 1 #####
+class delta(angle):
+    @classmethod
+    def delta_e(self, e):
+        return super().radians(2*np.arcsin(1/e))
+    
 
+##### Hyperbolic Angle 1 #####
+class thst_inf(angle):
+    @classmethod
+    def thst_inf_e(self, e):
+        return super().radians(np.arccos(-1/e))
 
 ##### Frame #####
 class frames:
@@ -276,10 +297,6 @@ class frames:
                         
         return cls(per, rad, mag)
 
-    # @classmethod
-    # def perifocal(cls, per,):
-    #     deg = np.rad2deg(rad)
-    #     return cls(deg, rad)
 
     def print_table(self):
         return pd.DataFrame(self.__dict__)
