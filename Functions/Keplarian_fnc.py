@@ -74,37 +74,6 @@ def Per_miu_a(miu, a):
     return 2*np.pi*np.sqrt(a**3/miu)
 
 
-##### Eccentric Anomaly #####
-# With miu and a (Mass constant and Semi-Major Axis)
-def E_thst(thst, e):
-    return 2*np.arctan2(np.arctan(thst/2), np.sqrt((1+e)/(1-e)))
-
-
-# With just M (mean Anomaly)
-def E_M(M, e, acc=10^-12, **kwargs):
-    E_n = M
-    for n in range(100):    
-        E_n1 = E_n - (E_n - e*np.sin(E_n) - M)/(1-e*np.cos(E_n))
-        error = abs(E_n1 - E_n)
-
-        if error < acc:
-            break
-
-        E_n = E_n1
-
-    if 'n_count' in kwargs and kwargs["n_count"] == True:
-        return [E_n1, n+1]
-    else:
-        return E_n1
-
-
-##### Mean Anomaly #####
-# With miu and a (Mass constant and Semi-Major Axis)
-def M_E_e(E, e):
-    return E-e*np.sin(E)
-
-
-
 ##### Speed #####
 def v_a_r(miu, a, r):
     return np.sqrt(2*(miu/r - miu/2/a))
@@ -120,20 +89,9 @@ def theta_runit_thunit(r_unit, h_unit):
     return np.arctan2(r_unit[-1],h_unit[-1])
 
 
-##### Inclination #####
-def i_hunit(h_unit_ECI):
-    return np.arccos(h_unit_ECI[-1])
-
-
-##### Right Ascension #####
-def RAAN_hunit(h_unit_ECI):
-    return np.arctan2(h_unit_ECI[0], -h_unit_ECI[1])
-
-
-##### Argument of Periapsis #####
-def omega_thst_theta(thst, theta):
-    return theta - thst
-
+#### Mean Motion ####
+def n_miu_a(miu, a):
+    return np.sqrt(miu/ a**3)
 
 ##### f and g function #####
 def f_r2_p_delthst(r2, p, delthst):
@@ -145,8 +103,8 @@ def g_miu_r1_r2_p_delthst(miu, r1, r2, p, delthst):
 
 
 def fdot_miu_r1vec_v1vec_p_delthst(miu, r1_vec, v1_vec, p, delthst):
-    r1 = np.norm(r1_vec)
-    return np.dot(r1_vec, v1_vec)/p/np.linalg.norm(r1_vec)*(1-np.cos(delthst)) -1/r1*np.sqrt(miu/p)*np.sin(delthst)
+    r1 = np.linalg.norm(r1_vec)
+    return np.dot(r1_vec, v1_vec)/p/r1*(1-np.cos(delthst)) -1/r1*np.sqrt(miu/p)*np.sin(delthst)
 
 
 def gdot_r1_p_delthst(r1,p,delthst):
@@ -187,27 +145,27 @@ def rad_2_cart(r, angle):
     return x, y
 
 
-##### Plot Functions #####
-# 3d axis
-def lims3dplot(xmax, xmin, ymax, ymin, zmax, zmin):
-    max_range = np.array([xmax-xmin, ymax-ymin, zmax-zmin]).max() 
-    mid_x = (xmax+xmin)/2
-    mid_y = (ymax+ymin)/2
-    mid_z = (zmax+zmin)/2
+# ##### Plot Functions #####
+# # 3d axis
+# def lims3dplot(xmax, xmin, ymax, ymin, zmax, zmin):
+#     max_range = np.array([xmax-xmin, ymax-ymin, zmax-zmin]).max() 
+#     mid_x = (xmax+xmin)/2
+#     mid_y = (ymax+ymin)/2
+#     mid_z = (zmax+zmin)/2
 
-    mids = np.array([mid_x, mid_y, mid_z])
-    upper_lim = np.array([-max_range, -max_range, -max_range]) + mids
-    lower_lim = np.array([max_range, max_range, max_range]) + mids
-    return lower_lim, upper_lim
+#     mids = np.array([mid_x, mid_y, mid_z])
+#     upper_lim = np.array([-max_range, -max_range, -max_range]) + mids
+#     lower_lim = np.array([max_range, max_range, max_range]) + mids
+#     return lower_lim, upper_lim
 
 
-#### Plot 2d ####
-def plot_2d(a, e, thst, ax, vis='-'):
-    r = a*(1-e**2)/(1+e*np.cos(thst))
-    x = r*np.cos(thst)
-    y = r*np.sin(thst)
+# #### Plot 2d ####
+# def plot_2d(a, e, thst, ax, vis='-'):
+#     r = a*(1-e**2)/(1+e*np.cos(thst))
+#     x = r*np.cos(thst)
+#     y = r*np.sin(thst)
 
-    ax.plot(x, y, vis)
+#     ax.plot(x, y, vis)
 
 
 #### Classes ####
@@ -225,6 +183,7 @@ class angle:
 
     @classmethod
     def radians(cls, rad):
+        rad = wrapto2pi(rad)
         deg = np.rad2deg(rad)
         return cls(deg, rad)
 
@@ -248,6 +207,7 @@ class gamma(angle):
     @classmethod
     def gamma_h_r_v_thst(self, h, r, v, thst):
         gamma = np.arccos(h/r/v)
+        thst = wrapto2pi(thst)
         signs = (thst > np.pi)*-1 + (thst < np.pi)
         return super().radians(gamma * signs)
 
@@ -264,6 +224,7 @@ class thst(angle):
         thst = 2*np.arctan(np.sqrt((1+e)/(1-e)) * np.tan(E/2))
         return super().radians(thst)
 
+
 ##### Hyperbolic Angle 1 #####
 class delta(angle):
     @classmethod
@@ -271,60 +232,171 @@ class delta(angle):
         return super().radians(2*np.arcsin(1/e))
     
 
-##### Hyperbolic Angle 1 #####
+
+##### Hyperbolic Angle 2 #####
 class thst_inf(angle):
     @classmethod
     def thst_inf_e(self, e):
         return super().radians(np.arccos(-1/e))
 
+
+##### Eccentric Anomaly #####
+class E(angle):
+    # With miu and a (Mass constant and Semi-Major Axis)
+    @classmethod
+    def E_thst(self, thst, e):
+        E = 2*np.arctan2(np.tan(thst/2), np.sqrt((1+e)/(1-e)))
+        return super().radians(E)
+
+
+    # With just M (mean Anomaly)
+    @classmethod
+    def E_M(self, M, e, acc=10^-12, **kwargs):
+        E_n = M
+        for n in range(100):    
+            E_n1 = E_n - (E_n - e*np.sin(E_n) - M)/(1-e*np.cos(E_n))
+            error = abs(E_n1 - E_n)
+
+            if error < acc:
+                break
+
+            E_n = E_n1
+
+        if 'n_count' in kwargs and kwargs["n_count"] == True:
+            return [super().radians(E_n1), n+1]
+        else:
+            return super().radians(E_n1)
+
+
+##### Mean Anomaly #####
+class M(angle):
+# With miu and a (Mass constant and Semi-Major Axis)
+    @classmethod
+    def M_E_e(self, E, e):
+        return super().radians(E-e*np.sin(E))
+
+
+##### Inclination #####
+class i(angle):
+    @classmethod
+    def i_hunit(self, h_unit_ECI):
+        return super().radians(np.arccos(h_unit_ECI[-1]))
+
+
+##### Right Ascension #####
+class Omega(angle):
+    @classmethod
+    def Omega_hunit(self, h_unit_ECI):
+        return super().radians(np.arctan2(h_unit_ECI[0], -h_unit_ECI[1]))
+
+
+##### Argument of Periapsis #####
+class omega(angle):
+    @classmethod
+    def omega_thst_theta(self, thst, theta):
+        return super().radians(theta - thst)
+    
+
+##### Anomaly #####
+class theta(angle):
+    @classmethod
+    def theta_thetaunit(self, theta_unit):
+        return super().radians(np.arctan2(theta_unit[-1], -theta_unit[1]))
+
+
+##### Change in true Anomaly #####
+class del_thst(angle):
+    @classmethod
+    def del_thst_r1_r2(self, r1_vec, r2_vec):
+        r1 = np.linalg.norm(r1_vec)
+        r2 = np.linalg.norm(r2_vec)
+        h = np.cross(r1_vec, r2_vec)
+        del_thst = np.sign(h[-1])*np.arccos(np.dot(r1_vec, r2_vec)/ (r1*r2))
+        return super().radians(del_thst)
+    
+    
 ##### Frame #####
 class frames:
-    def __init__(self, per, rad, mag):
+    def __init__(self, per, rad, eci, mag):
         self.per = per
         self.rad = rad
+        self.eci = eci
         self.mag = mag
 
     @classmethod
-    def radial2all(cls, rad, thst):
+    def radial2all(cls, rad, thst, i=0, omega=0, Omega=0):
         if isinstance(thst, np.ndarray):
             per = np.zeros(rad.shape)
-            for i, th in enumerate(thst):
-                per[i, ] = DCM_3(th) @ rad[i, ]
+            eci = np.zeros(rad.shape)
+            for n, th in enumerate(thst):
+                per[n, ] = DCM_3(th) @ rad[n, ]
+                eci[n, ] = sat2ECI(Omega=Omega, i=i, theta=omega+thst[n]) @ rad[n, ]
             mag = np.linalg.norm(per, axis=1)
+            
         else:
             per = DCM_3(thst) @ rad
+            eci = sat2ECI(Omega=Omega, i=i, theta=omega+thst) @ rad
             mag = np.linalg.norm(per)
                         
-        return cls(per, rad, mag)
+        return cls(per, rad, eci, mag)
 
 
     def print_table(self):
         return pd.DataFrame(self.__dict__)
+    
+    def __add__(self, other):
+        total_per = self.per + other.per
+        total_rad = self.rad + other.rad
+        total_eci = self.eci + other.eci
+        total_mag = np.linalg.norm(total_eci)
+        return frames(total_per, total_rad, total_eci, total_mag)
+    
+    def __sub__(self, other):
+        total_per = self.per + other.per
+        total_rad = self.rad + other.rad
+        total_eci = self.eci + other.eci
+        total_mag = np.linalg.norm(total_eci)
+        return frames(total_per, total_rad, total_eci, total_mag)
+    
+    def __mul__(self, other):
+        if isinstance(other, frames):
+            total_per = self.per * other.per
+            total_rad = self.rad * other.rad
+            total_eci = self.eci * other.eci
+            total_mag = np.linalg.norm(total_eci)
+        else:
+            total_per = self.per * other
+            total_rad = self.rad * other
+            total_eci = self.eci * other
+            total_mag = np.linalg.norm(total_eci)
+            
+        return frames(total_per, total_rad, total_eci, total_mag)
 
 
 ##### Distance #####
 class distance(frames):
 
     @classmethod
-    def keplar_r(self, p, e, thst):
+    def keplar_r(self, p, e, thst, i=0, omega=0, Omega=0):
         r = p/(1+e*np.cos(thst))
-        
         if isinstance(thst, np.ndarray):
             zero = np.zeros(thst.shape)
             r_vec = np.block([r, zero, zero]).reshape((len(thst), 3), order='F')
         else:
             r_vec = np.array([r, 0, 0])
             
-        return super().radial2all(r_vec, thst)
+        return super().radial2all(r_vec, thst, i, omega, Omega)
+
 
 
 ##### Velocity #####
 class velocity(frames):
     
     @classmethod
-    def v_gamma(self, v, gamma, thst):
+    def v_gamma(self, v, gamma, thst, i=0, omega=0, Omega=0):
         v_rad = v* np.array([np.sin(gamma), np.cos(gamma), 0])
-        return super().radial2all(v_rad, thst)
+        # thst = wrapto2pi(thst)
+        return super().radial2all(v_rad, thst, i, omega, Omega)
     
     @classmethod
     def v_a_miu_r(self, a, miu, r):
