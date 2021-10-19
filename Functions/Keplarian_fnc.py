@@ -188,7 +188,7 @@ class angle:
         return cls(deg, rad)
 
     def print_table(self):
-        return pd.DataFrame(self.__dict__)
+        return pd.DataFrame.round(pd.DataFrame(self.__dict__),3)
     
     def __add__(self, other):
         total_rad = self.rad + other.rad
@@ -220,8 +220,13 @@ class thst(angle):
         return super().radians(thst)
 
     @classmethod
-    def thst_E_e(E, e):
+    def thst_E_e(self, E, e):
         thst = 2*np.arctan(np.sqrt((1+e)/(1-e)) * np.tan(E/2))
+        return super().radians(thst)
+    
+    @classmethod
+    def thst_p_e_r(self, p, e, r):
+        thst = np.arccos((p/r -1)/e)
         return super().radians(thst)
 
 
@@ -313,8 +318,43 @@ class del_thst(angle):
         h = np.cross(r1_vec, r2_vec)
         del_thst = np.sign(h[-1])*np.arccos(np.dot(r1_vec, r2_vec)/ (r1*r2))
         return super().radians(del_thst)
-    
-    
+
+
+##### True Anomaly Intersect #####
+class thst_int(angle):
+    @classmethod
+    def thst_int(self, p1, p2, e1, e2, del_omega):
+        a = p1/p2 - 1
+        b = e1 - p1/p2 * e2 * np.cos(del_omega) 
+        c = p1/p2 *e2 * np.sin(del_omega)
+        phi = np.arctan2(c, b)
+        thst_int_1 = np.arccos(a/np.sqrt(b**2 + c**2)) 
+        thst_int = np.array([thst_int_1, -thst_int_1]) - phi
+        return super().radians(thst_int)
+
+
+##### Alpha Angle of DeltaV #####
+class alpha(angle):
+    @classmethod
+    def alpha_v1rad_delVrad(self, v_vec1, delV_vec):
+        # Must be radial
+        v1 = np.linalg.norm(v_vec1)
+        delV = np.linalg.norm(delV_vec)
+        alpha = np.sign(delV_vec[0])* np.arccos(np.dot(v_vec1, delV_vec) / v1 / delV)
+        return super().radians(alpha)
+
+
+##### Beta Angle of DeltaV #####
+class beta(angle):
+    @classmethod
+    def beta_v1_v2_delV_gamma1_gamma2(self, v1, v2, delV, gamma1, gamma2):
+        del_gamma = gamma2 - gamma1
+        cos = (v1**2 + delV**2 - v2**2)/ (2*delV*v1)
+        sin = np.sin(del_gamma)*v2/delV
+        beta = np.arctan2(sin, cos)
+        return super().radians(beta)
+
+
 ##### Frame #####
 class frames:
     def __init__(self, per, rad, eci, mag):
@@ -342,20 +382,22 @@ class frames:
 
 
     def print_table(self):
-        return pd.DataFrame(self.__dict__)
-    
+        return pd.DataFrame.round(pd.DataFrame(self.__dict__),3)
+
+
     def __add__(self, other):
         total_per = self.per + other.per
         total_rad = self.rad + other.rad
         total_eci = self.eci + other.eci
-        total_mag = np.linalg.norm(total_eci)
+        total_mag = np.linalg.norm(total_rad)
         return frames(total_per, total_rad, total_eci, total_mag)
-    
+
+
     def __sub__(self, other):
-        total_per = self.per + other.per
-        total_rad = self.rad + other.rad
-        total_eci = self.eci + other.eci
-        total_mag = np.linalg.norm(total_eci)
+        total_per = self.per - other.per
+        total_rad = self.rad - other.rad
+        total_eci = self.eci - other.eci
+        total_mag = np.linalg.norm(total_rad)
         return frames(total_per, total_rad, total_eci, total_mag)
     
     def __mul__(self, other):
@@ -391,13 +433,12 @@ class distance(frames):
 
 ##### Velocity #####
 class velocity(frames):
-    
     @classmethod
     def v_gamma(self, v, gamma, thst, i=0, omega=0, Omega=0):
-        v_rad = v* np.array([np.sin(gamma), np.cos(gamma), 0])
-        # thst = wrapto2pi(thst)
+        v_rad = v * np.array([np.sin(gamma), np.cos(gamma), 0])
         return super().radial2all(v_rad, thst, i, omega, Omega)
-    
+
+
     @classmethod
     def v_a_miu_r(self, a, miu, r):
         v = np.sqrt(2*(miu/r - miu/2/a))
