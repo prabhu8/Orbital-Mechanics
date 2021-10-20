@@ -305,8 +305,8 @@ class omega(angle):
 ##### Anomaly #####
 class theta(angle):
     @classmethod
-    def theta_thetaunit(self, theta_unit):
-        return super().radians(np.arctan2(theta_unit[-1], -theta_unit[1]))
+    def theta_thetaunit_runit(self, theta_unit, r_unit):
+        return super().radians(np.arctan2(r_unit[-1], theta_unit[-1]))
 
 
 ##### Change in true Anomaly #####
@@ -355,6 +355,14 @@ class beta(angle):
         return super().radians(beta)
 
 
+##### Beta Angle of DeltaV #####
+class beta_out(angle):
+    @classmethod
+    def betaout_delV(self, delV):
+        beta_out = np.arccos(np.linalg.norm(delV[:2])/ np.linalg.norm(delV))
+        return super().radians(beta_out)
+
+
 ##### Frame #####
 class frames:
     def __init__(self, per, rad, eci, mag):
@@ -376,6 +384,23 @@ class frames:
         else:
             per = DCM_3(thst) @ rad
             eci = sat2ECI(Omega=Omega, i=i, theta=omega+thst) @ rad
+            mag = np.linalg.norm(per)
+                        
+        return cls(per, rad, eci, mag)
+    
+    @classmethod
+    def eci2all(cls, eci, thst, i=0, omega=0, Omega=0):
+        if isinstance(thst, np.ndarray):
+            per = np.zeros(eci.shape)
+            rad = np.zeros(eci.shape)
+            for n, th in enumerate(thst):
+                rad[n, ] = sat2ECI(Omega=Omega, i=i, theta=omega+thst[n]).T @ eci[n, ]
+                per[n, ] = DCM_3(th) @ rad[n, ]
+            mag = np.linalg.norm(per, axis=1)
+            
+        else:
+            rad = sat2ECI(Omega=Omega, i=i, theta=omega+thst).T @ eci
+            per = DCM_3(thst) @ rad
             mag = np.linalg.norm(per)
                         
         return cls(per, rad, eci, mag)
